@@ -62,10 +62,12 @@ def fetch_emails(service):
         emails = []
         for message in messages:
             msg = service.users().messages().get(userId='me', id=message['id']).execute()
+            headers = msg['payload'].get('headers', [])
+            sender = next((header['value'] for header in headers if header['name'] == 'From'), None)
             email_data = {
                 'id': msg['id'],
                 'snippet': msg['snippet'],
-                'payload': msg['payload']
+                'sender': sender
             }
             emails.append(email_data)
         logging.info("Emails fetched")
@@ -80,9 +82,9 @@ def save_emails_to_db(emails):
         conn = sqlite3.connect('emails.db')
         c = conn.cursor()
         c.execute('''CREATE TABLE IF NOT EXISTS emails
-                     (id TEXT PRIMARY KEY, snippet TEXT)''')
+                     (id TEXT PRIMARY KEY, snippet TEXT, sender TEXT)''')
         for email in emails:
-            c.execute('INSERT OR IGNORE INTO emails (id, snippet) VALUES (?, ?)', (email['id'], email['snippet']))
+            c.execute('INSERT OR IGNORE INTO emails (id, snippet, sender) VALUES (?, ?, ?)', (email['id'], email['snippet'], email['sender']))
         conn.commit()
         conn.close()
         logging.info("Emails saved")
